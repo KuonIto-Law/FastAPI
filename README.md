@@ -1,44 +1,47 @@
-# FastAPI × Gemini 物体検出 API
+# Object Detection API with FastAPI × Gemini
 
-画像をアップロードすると、Google Gemini 2.5 Flash が物体を検出し、バウンディングボックス付きの画像を返す REST API です。
+A REST API that accepts an uploaded image and returns detected objects with bounding boxes, powered by Google Gemini 2.5 Flash.
 
-## デモ
+> I wrote a technical article on Qiita explaining the implementation behind this repository (Japanese).
+> **[FastAPIとLangChainで画像中の対象を検出するAPI作成](https://qiita.com/KuonIto/items/6a5ddd86e076ba9a40b1)**
 
-入力画像に対して `/visualize` エンドポイントを呼び出すと、検出された物体にラベルと枠が描画されます。
+## Demo
 
-![富士山検出デモ](MTfuji_detected.jpeg)
+Calling the `/visualize` endpoint draws labeled bounding boxes over detected objects in the image.
+
+![Mt. Fuji detection demo](MTfuji_detected.jpeg)
 
 ---
 
-## 技術スタック
+## Tech Stack
 
-| カテゴリ | 技術 |
+| Category | Technology |
 |---|---|
-| Web フレームワーク | FastAPI |
-| AI モデル | Google Gemini 2.5 Flash (multimodal) |
-| LLM パイプライン | LangChain (LCEL) |
-| スキーマ定義 | Pydantic v2 |
-| 画像処理 | Pillow |
-| 実行環境 | Python 3.11+ / uvicorn |
+| Web Framework | FastAPI |
+| AI Model | Google Gemini 2.5 Flash (multimodal) |
+| LLM Pipeline | LangChain (LCEL) |
+| Schema Validation | Pydantic v2 |
+| Image Processing | Pillow |
+| Runtime | Python 3.11+ / uvicorn |
 
 ---
 
-## エンドポイント
+## Endpoints
 
 ### `POST /detect`
-画像を受け取り、検出結果を JSON で返します。
+Accepts an image and returns detection results as JSON.
 
 **Request:** `multipart/form-data`
-- `file`: 画像ファイル（JPEG / PNG）
-- `query`: 検出対象の文字列（例: `"人"`, `"富士山"`）
+- `file`: image file (JPEG / PNG)
+- `query`: target to detect (e.g. `"person"`, `"Mt. Fuji"`)
 
 **Response:**
 ```json
 {
-  "description": "富士山を背景にした風景写真です。",
+  "description": "A landscape photo with Mt. Fuji in the background.",
   "detected_objects": [
     {
-      "label": "富士山",
+      "label": "Mt. Fuji",
       "box_2d": [120, 200, 800, 900]
     }
   ]
@@ -48,62 +51,51 @@
 ---
 
 ### `POST /visualize`
-画像を受け取り、検出ボックスとラベルを描画した JPEG 画像を返します。
+Accepts an image and returns a JPEG with bounding boxes and labels drawn on it.
 
-**Request:** `/detect` と同じ
+**Request:** same as `/detect`
 
-**Response:** `image/jpeg`（バウンディングボックス描画済み）
+**Response:** `image/jpeg` (annotated image)
 
 ---
 
-## セットアップ
+## Setup
 
 ```bash
-# 依存パッケージのインストール
+# Install dependencies
 pip install -e .
 
-# 環境変数の設定
+# Configure environment variables
 cp .env.example .env
-# .env に GOOGLE_API_KEY を記入
+# Fill in GOOGLE_API_KEY in .env
 ```
 
 ```bash
-# サーバー起動
+# Start the server
 uvicorn main:app --reload
 ```
 
-起動後、`http://localhost:8000/docs` で Swagger UI から動作確認できます。
+Once running, open `http://localhost:8000/docs` to explore the API via Swagger UI.
 
 ---
 
-## CLI での実行
+## Design Highlights
 
-API サーバーを立てずに、コマンドラインから直接検出することも可能です。
-
-```bash
-python detect.py MTfuji.jpeg --query "富士山" --output result.jpeg
-```
-
----
-
-## 設計のポイント
-
-- **依存性注入 (`Depends`)**: ファイルバリデーションを `get_image_file` 関数に切り出し、エンドポイントの責務を分離
-- **非同期処理 (`async/await`)**: I/O バウンドな処理（ファイル読み込み・LLM 呼び出し）を非同期で実装
-- **StreamingResponse**: 画像レスポンスをディスクに保存せずメモリ上から直接返すことでオーバーヘッドを削減
-- **LangChain LCEL パイプライン**: 前処理 → プロンプト → LLM → 構造化出力を `|` 演算子でチェーンし、可読性の高いパイプラインを構成
-- **Pydantic による構造化出力**: `with_structured_output(DetectionResult)` で LLM の出力を型安全なオブジェクトに変換
-- **APIRouter**: 機能単位でルートを分割し、将来の機能追加に対応しやすい構造
+- **Dependency Injection (`Depends`)**: File validation is extracted into `get_image_file`, keeping endpoint logic focused on business logic
+- **Async I/O (`async/await`)**: File reads and LLM calls are handled asynchronously to avoid blocking the event loop
+- **StreamingResponse**: Annotated images are returned directly from memory without writing to disk, reducing overhead
+- **LangChain LCEL Pipeline**: Pre-processing → prompt → LLM → structured output are chained with the `|` operator for a clean, readable pipeline
+- **Structured Output (Pydantic)**: `with_structured_output(DetectionResult)` automatically parses LLM responses into type-safe Python objects
+- **APIRouter**: Routes are grouped by feature, making the codebase easy to extend
 
 ---
 
-## ディレクトリ構成
+## Project Structure
 
 ```
 .
-├── main.py        # FastAPI アプリ・エンドポイント定義
-├── chain.py       # LangChain パイプライン（Gemini 呼び出し）
-├── schema.py      # Pydantic スキーマ（DetectionResult）
-├── detect.py      # CLI スクリプト
-└── pyproject.toml # 依存パッケージ定義
+├── main.py        # FastAPI app and endpoint definitions
+├── chain.py       # LangChain pipeline (Gemini integration)
+├── schema.py      # Pydantic schemas (DetectionResult)
+└── pyproject.toml # Dependency definitions
 ```

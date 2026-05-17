@@ -1,9 +1,9 @@
 from pydantic import BaseModel
 
 class DetectedObject(BaseModel):
-    label: str                          # 検出した物体の名前
-    box_2d: tuple[int, int, int, int]   # [y_min, x_min, y_max, x_max] 0-1000スケール
+    label: str                          # name of the detected object
+    box_2d: tuple[int, int, int, int]   # [y_min, x_min, y_max, x_max] on a 0-1000 scale
 
 class DetectionResult(BaseModel):
-    description: str                       # 画像全体の説明
-    detected_objects: list[DetectedObject] # 検出した物体のリスト（何個でもOK）
+    description: str                       # overall description of the image
+    detected_objects: list[DetectedObject] # list of all detected objects

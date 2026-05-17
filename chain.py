@@ -10,14 +10,15 @@ load_dotenv(override=True)
 
 from schema import DetectionResult
 
-# ① LLMの初期化（with_structured_outputでスキーマを直接渡す）
+# Initialize Gemini with structured output so the response is automatically
+# parsed into a DetectionResult object.
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     api_key=SecretStr(os.environ["GOOGLE_API_KEY"]),
     temperature=0,
 ).with_structured_output(DetectionResult)
 
-# ② プロンプト：画像（base64）+ テキスト指示
+# Prompt template that accepts a base64-encoded image and a text query.
 prompt = ChatPromptTemplate([
     HumanMessagePromptTemplate.from_template([
         {
@@ -25,15 +26,15 @@ prompt = ChatPromptTemplate([
         },
         {
             "text": """\
-画像を説明してください。
-次に、画像の中から「{query}」に該当するものをすべて検出してください。
-それぞれに label と box_2d（0〜1000スケールの [y_min, x_min, y_max, x_max]）を付けてください。
+Describe the image.
+Then detect all objects matching "{query}".
+For each object provide a label and box_2d ([y_min, x_min, y_max, x_max] on a 0-1000 scale).
 """
         },
     ])
 ])
 
-# ③ Chain の組み立て
+# LCEL pipeline: encode image → build prompt → call LLM → return structured output
 chain = (
     {
         "image": lambda x: base64.b64encode(x["image"]).decode(),
